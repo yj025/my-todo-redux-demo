@@ -8,17 +8,17 @@ const config: webpack.Configuration = {
     context: __dirname,
 
     entry: {
-        index: './src',
+        index: './src/index',
     },
 
     output: {
-        filename: 'bundle.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, './dist'),
         publicPath: '/',
     },
 
     resolve: {
-        extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
     },
 
     devtool: 'source-map',
@@ -76,8 +76,7 @@ const config: webpack.Configuration = {
 
         new HtmlWebPackPlugin({
             template: "./public/index.html",
-            filename: "./index.html",
-            favicon: './public/favicon.ico'
+            filename: "./index.html"
         })
     ],
 };
