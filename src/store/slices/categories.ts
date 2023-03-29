@@ -1,6 +1,5 @@
 import { createSlice,createEntityAdapter} from "@reduxjs/toolkit";
 import {Category} from "../../api";
-import {each} from "lodash";
 
 const categoriesAdapter = createEntityAdapter<Category>();
 

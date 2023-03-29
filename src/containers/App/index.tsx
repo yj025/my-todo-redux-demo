@@ -1,9 +1,9 @@
 import  * as React from 'react';
-import Todo from "../Todos";
+import Todos from "../Todos";
 const App:React.FC = () => {
     return(
         <div>
-            <Todo/>
+            <Todos/>
         </div>
     )
 }

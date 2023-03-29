@@ -1,54 +1,87 @@
 import * as React from 'react';
-import {useEffect, useState} from "react";
+import {useState} from 'react';
 import {Button, Divider, Input, Select, Slider, Typography} from "antd";
 import {CloseOutlined, PlusOutlined} from "@ant-design/icons/lib";
-import {SliderMarks} from "antd/es/slider";
+import {SliderValue} from "antd/es/slider";
 import QueueAnim from 'rc-queue-anim';
 
+import {
+    Category,
+    CategoryContent,
+    CategoryCreationProps,
+    CategoryId,
+    TodoContent,
+    TodoCreationProps,
+    TodoPriorityEnum
+} from "../../api";
 import style from './AddTodo.module.css';
 
 
-const AddTodo: React.FC = () => {
+interface AddTodoProps {
+    allCategories: Category[];
+    isLoading: boolean;
+    disabled: boolean;
+    onAddCategory: (category: CategoryCreationProps) => Promise<void>;
+    isAddCategoryLoading: boolean;
+    onAddTodo: (todo: TodoCreationProps) => Promise<void>;
+    isAddTodoLoading: boolean;
+}
+
+const AddTodo: React.FC<AddTodoProps> = ({
+                                             allCategories,
+                                             isLoading,
+                                             onAddCategory,
+                                             isAddCategoryLoading,
+                                             onAddTodo,
+                                             isAddTodoLoading,
+                                             disabled
+                                         }) => {
     const [modalVisible, setModalVisibility] = useState(false);
-
-    const [todoContent, setTodoContent] = useState('');
-    const [todoLabels, setTodoLabels] = useState([] as string[]);
-    const [addTodoLabelInput, setAddTodoLabelInput] = useState('')
-    const [todoPriority, setTodoPriority] = useState(1);
-
-    useEffect(() => {
-        console.log('content ' + todoContent)
-        console.log('labels ' + todoLabels)
-        console.log('priority ' + todoPriority)
-    });
-
     const toggleModalVisible = (): void => {
         document.body.style.overflow = modalVisible ? 'unset' : 'hidden';
         setModalVisibility(!modalVisible)
     };
-
-    const changeTodoContent = (e: React.FormEvent<HTMLInputElement>): void => setTodoContent(e.currentTarget.value)
-    const changeTodoLabels = (values: string[]): void => setTodoLabels(values)
-    const changeAddTodoLabelInput = (e: React.FormEvent<HTMLInputElement>): void => setAddTodoLabelInput(e.currentTarget.value)
-    const changeTodoPriority = (value: number): void => setTodoPriority(value)
-
-    const doFieldsValidate = (): boolean => {
-        return todoContent != '';
+    const [content, setContent] = useState<TodoContent>();
+    const onContentInputChange = (e: React.FormEvent<HTMLInputElement>): void => setContent(e.currentTarget.value);
+    const [priority, setPriority] = useState<TodoPriorityEnum | null>(TodoPriorityEnum.LOW);
+    const PriorityToSliderValueMap = new Map<TodoPriorityEnum, number>([
+        [TodoPriorityEnum.LOW, 1], [TodoPriorityEnum.MEDIUM, 2], [TodoPriorityEnum.HIGH, 3],
+    ]);
+    const onPrioritySliderChange = (value: SliderValue): void => {
+        const SliderValueToPriorityMap = new Map<SliderValue, TodoPriorityEnum>([
+            [1, TodoPriorityEnum.LOW], [2, TodoPriorityEnum.MEDIUM], [3, TodoPriorityEnum.HIGH],
+        ]);
+        setPriority(SliderValueToPriorityMap.get(value) || null);
     }
+    const [categories, setCategories] = useState<Category[]>([]);
+    const onCategoriesSelectChange = (categoriesIds: CategoryId[]): void => setCategories(
+        allCategories.filter(category => categoriesIds.includes(category.id))
+    );
+    const [addCategoryInput, setAddCategoryInput] = useState<CategoryContent>();
+    const onAddCategoryInputChange = (e: React.FormEvent<HTMLInputElement>): void => setAddCategoryInput(e.currentTarget.value);
 
-    const todoPrioritySliderOptions: SliderMarks = {
-        0: 'None',
-        1: 'Low',
-        2: 'Medium',
-        3: 'High',
+    const onAddCategoryClick = (): void => {
+        if (!!addCategoryInput) {
+            onAddCategory({content: addCategoryInput});
+        }
+    };
+    const onAddTodoClick = async (): Promise<void> => {
+        if (content) {
+            await onAddTodo({content, priority: priority || undefined, categoriesIds: categories.map((c => c.id))});
+            setModalVisibility(false);
+            setContent(undefined);
+            setCategories([]);
+            setPriority(TodoPriorityEnum.LOW);
+        }
     };
 
-    const createInputGroupComponent = (title: string, inputItem: React.ReactElement): React.ReactElement =>
+    const doFormFieldsValidate = (): boolean => content !== undefined && content !== '';
+
+    const InputGroup = (title: string, inputItem: JSX.Element): JSX.Element =>
         <div className={style.inputGroup}>
             <Typography.Text className={style.inputTitle}>{title}</Typography.Text>
             {inputItem}
         </div>
-
     return (
         <React.Fragment>
             <QueueAnim type='bottom'>
@@ -64,23 +97,24 @@ const AddTodo: React.FC = () => {
                                     onClick={toggleModalVisible}
                                 />
                             </div>
-                            <div className={style.modalContent}>
-                                {createInputGroupComponent('To-do',
+                            <div className={style.modalBody}>
+                                {InputGroup('To-do',
                                     <Input
                                         size="large"
                                         placeholder="What needs to be done?"
-                                        value={todoContent}
-                                        onChange={changeTodoContent}
+                                        value={content}
+                                        onChange={onContentInputChange}
                                     />
                                 )}
-                                {createInputGroupComponent('Labels',
+                                {InputGroup('Categories',
                                     <Select
+                                        loading={isLoading}
                                         size="large"
                                         placeholder={"Select Labels"}
                                         showSearch
                                         mode="multiple"
                                         optionFilterProp="children"
-                                        onChange={changeTodoLabels}
+                                        onChange={onCategoriesSelectChange}
                                         dropdownRender={menu => (
                                             <div>
                                                 {menu}
@@ -88,36 +122,53 @@ const AddTodo: React.FC = () => {
                                                 <div className={style.addTodoLabelContainer}>
                                                     <Input
                                                         className={style.addTodoLabelInput}
-                                                        value={addTodoLabelInput}
-                                                        onChange={changeAddTodoLabelInput}
+                                                        value={addCategoryInput}
+                                                        onChange={onAddCategoryInputChange}
                                                     />
-                                                    {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-                                                    <a className={style.addTodoLabelButton}>
-                                                        <PlusOutlined /> Add Label
-                                                    </a>
+                                                    <Button
+                                                        loading={isAddCategoryLoading}
+                                                        className={style.addTodoCategoryButton}
+                                                        icon={<PlusOutlined/>}
+                                                        disabled={allCategories.map(c => c.content).includes(addCategoryInput || '') || !addCategoryInput}
+                                                        onClick={onAddCategoryClick}
+                                                    >
+                                                        {"Add Category"}
+                                                    </Button>
                                                 </div>
                                             </div>
                                         )}
                                     >
-                                        <Select.Option value="home">Home</Select.Option>
-                                        <Select.Option value="work">Work</Select.Option>
-                                        <Select.Option value="family">Family</Select.Option>
+                                        {
+                                            allCategories.map(category =>
+                                                <Select.Option key={category.id}
+                                                               value={category.id}>{category.content}</Select.Option>)
+                                        }
                                     </Select>
                                 )}
-                                {createInputGroupComponent('Priority',
+                                {InputGroup('Priority',
                                     <Slider
-                                        marks={todoPrioritySliderOptions}
+                                        marks={{
+                                            0: 'None',
+                                            1: TodoPriorityEnum.LOW,
+                                            2: TodoPriorityEnum.MEDIUM,
+                                            3: TodoPriorityEnum.HIGH
+                                        }}
                                         max={3}
-                                        value={todoPriority}
-                                        defaultValue={todoPriority}
-                                        onChange={(value => changeTodoPriority(value as number))}
+                                        tooltipVisible={false}
+                                        value={priority !== null ? PriorityToSliderValueMap.get(priority) : 0}
+                                        onChange={onPrioritySliderChange}
                                     />
                                 )}
                             </div>
                         </div>
                         <div className={style.modalFooter}>
                             <div className={style.doneTodoButtonContainer}>
-                                <Button className={style.doneTodoButton} type={"primary"} disabled={doFieldsValidate()}>
+                                <Button
+                                    className={doFormFieldsValidate() ? style.doneTodoButton : style.doneTodoButtonDisabled}
+                                    type={"primary"}
+                                    onClick={onAddTodoClick}
+                                    loading={isAddTodoLoading}
+                                    disabled={!doFormFieldsValidate()}>
                                     {"Done"}
                                 </Button>
                             </div>
@@ -129,6 +180,7 @@ const AddTodo: React.FC = () => {
             <div className={style.addTodoButtonContainer}>
                 <Button
                     className={style.addTodoButton}
+                    disabled={disabled}
                     type={"primary"}
                     icon={<PlusOutlined style={{fontSize: 22, marginTop: 4}}/>}
                     onClick={toggleModalVisible}
